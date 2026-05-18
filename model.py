@@ -623,97 +623,161 @@ class Transformer(nn.Module):
     # ════════════════════════════════════════════════════════════
     # infer  — end-to-end German → English
     # ════════════════════════════════════════════════════════════
-
-    def infer(self, src_sentence: str) -> str:
-        """
-        Translate a single German sentence to English.
-
-        Pipeline:
-            1. Tokenize the German input with spaCy
-            2. Numericalize using the source vocabulary
-               (wrap with <sos> / <eos>)
-            3. Build source mask and run the encoder
-            4. Autoregressively decode (greedy) until <eos>
-               or max_infer_len tokens are produced
-            5. Convert predicted token indices back to an
-               English string and return it
-
-        Args:
-            src_sentence : Raw German string, e.g.
-                           "Ein Mann sitzt auf einer Bank."
-
-        Returns:
-            Predicted English translation as a plain string.
-        """
-
+    def infer(self, src_sentence: str, beam_size: int = 5) -> str:
         self.eval()
-
         with torch.no_grad():
-
-            # ── Step 1 & 2 : tokenize + numericalize ─────────────
-
+    
+            # tokenize + numericalize
             tokens = self._tokenize_de(src_sentence)
-
             src_indices = (
                 [self.src_vocab.stoi["<sos>"]]
-                + [
-                    self.src_vocab.stoi.get(tok, self.src_vocab.stoi["<unk>"])
-                    for tok in tokens
-                ]
+                + [self.src_vocab.stoi.get(tok, self.src_vocab.stoi["<unk>"]) for tok in tokens]
                 + [self.src_vocab.stoi["<eos>"]]
             )
-
-            src_tensor = torch.tensor(
-                src_indices,
-                dtype=torch.long,
-                device=self._device,
-            ).unsqueeze(0)   # [1, src_len]
-
-            # ── Step 3 : encode ───────────────────────────────────
-
-            src_mask = make_src_mask(src_tensor)           # [1,1,1,src_len]
-            memory   = self.encode(src_tensor, src_mask)   # [1, src_len, d_model]
-
-            # ── Step 4 : autoregressive greedy decoding ───────────
-
+            src_tensor = torch.tensor(src_indices, dtype=torch.long, device=self._device).unsqueeze(0)
+            src_mask   = make_src_mask(src_tensor)
+            memory     = self.encode(src_tensor, src_mask)
+    
             sos_idx = self.tgt_vocab.stoi["<sos>"]
             eos_idx = self.tgt_vocab.stoi["<eos>"]
-
-            # Start with just the <sos> token
-            ys = torch.tensor(
-                [[sos_idx]],
-                dtype=torch.long,
-                device=self._device,
-            )
-
+    
+            # beams: list of (log_prob, token_ids)
+            beams     = [(0.0, [sos_idx])]
+            completed = []
+    
             for _ in range(self._max_infer_len - 1):
-
-                tgt_mask = make_tgt_mask(ys)
-
-                out  = self.decode(memory, src_mask, ys, tgt_mask)
-                prob = out[:, -1]                         # [1, tgt_vocab_size]
-
-                _, next_word = torch.max(prob, dim=1)
-                next_word    = next_word.item()
-
-                ys = torch.cat(
-                    [
-                        ys,
-                        torch.tensor(
-                            [[next_word]],
-                            dtype=torch.long,
-                            device=self._device,
-                        ),
-                    ],
-                    dim=1,
-                )
-
-                if next_word == eos_idx:
+    
+                if not beams:
                     break
+    
+                candidates = []
+    
+                for log_prob, seq in beams:
+    
+                    if seq[-1] == eos_idx:
+                        completed.append((log_prob, seq))
+                        continue
+    
+                    ys       = torch.tensor([seq], dtype=torch.long, device=self._device)
+                    tgt_mask = make_tgt_mask(ys)
+                    out      = self.decode(memory, src_mask, ys, tgt_mask)
+    
+                    log_probs          = torch.log_softmax(out[:, -1], dim=-1).squeeze(0)
+                    topk_log_probs, topk_ids = log_probs.topk(beam_size)
+    
+                    for lp, idx in zip(topk_log_probs.tolist(), topk_ids.tolist()):
+                        candidates.append((log_prob + lp, seq + [idx]))
+    
+                if not candidates:
+                    break
+    
+                # length-normalised sort so longer sentences aren't penalised
+                candidates.sort(key=lambda x: x[0] / len(x[1]), reverse=True)
+                beams = candidates[:beam_size]
+    
+                # stop early if all beams have ended
+                if all(s[-1] == eos_idx for _, s in beams):
+                    completed.extend(beams)
+                    break
+    
+            if not completed:
+                completed = beams
+    
+            # pick best by length-normalised score
+            completed.sort(key=lambda x: x[0] / len(x[1]), reverse=True)
+            best_seq = completed[0][1]
+    
+        return self._tokenize_en_ids(best_seq)
+    # def infer(self, src_sentence: str) -> str:
+    #     """
+    #     Translate a single German sentence to English.
 
-            # ── Step 5 : detokenize ───────────────────────────────
+    #     Pipeline:
+    #         1. Tokenize the German input with spaCy
+    #         2. Numericalize using the source vocabulary
+    #            (wrap with <sos> / <eos>)
+    #         3. Build source mask and run the encoder
+    #         4. Autoregressively decode (greedy) until <eos>
+    #            or max_infer_len tokens are produced
+    #         5. Convert predicted token indices back to an
+    #            English string and return it
 
-            predicted_ids = ys.squeeze(0).tolist()
-            english_sentence = self._tokenize_en_ids(predicted_ids)
+    #     Args:
+    #         src_sentence : Raw German string, e.g.
+    #                        "Ein Mann sitzt auf einer Bank."
 
-        return english_sentence
+    #     Returns:
+    #         Predicted English translation as a plain string.
+    #     """
+
+    #     self.eval()
+
+    #     with torch.no_grad():
+
+    #         # ── Step 1 & 2 : tokenize + numericalize ─────────────
+
+    #         tokens = self._tokenize_de(src_sentence)
+
+    #         src_indices = (
+    #             [self.src_vocab.stoi["<sos>"]]
+    #             + [
+    #                 self.src_vocab.stoi.get(tok, self.src_vocab.stoi["<unk>"])
+    #                 for tok in tokens
+    #             ]
+    #             + [self.src_vocab.stoi["<eos>"]]
+    #         )
+
+    #         src_tensor = torch.tensor(
+    #             src_indices,
+    #             dtype=torch.long,
+    #             device=self._device,
+    #         ).unsqueeze(0)   # [1, src_len]
+
+    #         # ── Step 3 : encode ───────────────────────────────────
+
+    #         src_mask = make_src_mask(src_tensor)           # [1,1,1,src_len]
+    #         memory   = self.encode(src_tensor, src_mask)   # [1, src_len, d_model]
+
+    #         # ── Step 4 : autoregressive greedy decoding ───────────
+
+    #         sos_idx = self.tgt_vocab.stoi["<sos>"]
+    #         eos_idx = self.tgt_vocab.stoi["<eos>"]
+
+    #         # Start with just the <sos> token
+    #         ys = torch.tensor(
+    #             [[sos_idx]],
+    #             dtype=torch.long,
+    #             device=self._device,
+    #         )
+
+    #         for _ in range(self._max_infer_len - 1):
+
+    #             tgt_mask = make_tgt_mask(ys)
+
+    #             out  = self.decode(memory, src_mask, ys, tgt_mask)
+    #             prob = out[:, -1]                         # [1, tgt_vocab_size]
+
+    #             _, next_word = torch.max(prob, dim=1)
+    #             next_word    = next_word.item()
+
+    #             ys = torch.cat(
+    #                 [
+    #                     ys,
+    #                     torch.tensor(
+    #                         [[next_word]],
+    #                         dtype=torch.long,
+    #                         device=self._device,
+    #                     ),
+    #                 ],
+    #                 dim=1,
+    #             )
+
+    #             if next_word == eos_idx:
+    #                 break
+
+    #         # ── Step 5 : detokenize ───────────────────────────────
+
+    #         predicted_ids = ys.squeeze(0).tolist()
+    #         english_sentence = self._tokenize_en_ids(predicted_ids)
+
+    #     return english_sentence
