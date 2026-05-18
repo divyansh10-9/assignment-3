@@ -1,0 +1,15 @@
+torch
+torchvision
+torchaudio
+
+numpy
+matplotlib
+scikit-learn
+tqdm
+
+datasets
+spacy
+nltk
+
+wandb
+gdown
