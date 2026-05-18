@@ -417,14 +417,14 @@ def load_checkpoint(
 def run_training_experiment():
 
     config = {
-        "batch_size"   : 32,
+        "batch_size"   : 128,
         "d_model"      : 512,
         "num_heads"    : 8,
         "num_layers"   : 6,
         "d_ff"         : 2048,
         "dropout"      : 0.1,
-        "epochs"       : 10,
-        "warmup_steps" : 4000,
+        "epochs"       : 15,
+        "warmup_steps" : 3000,
         "lr"           : 1.0,
     }
 

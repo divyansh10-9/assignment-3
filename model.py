@@ -431,7 +431,7 @@ class Transformer(nn.Module):
     """
 
     # ── ❶ replace this with your actual Google Drive file ID ──
-    _DEFAULT_GDRIVE_FILE_ID = "1lGcq7RlC9rE618LGza8G4r8yzENhyQmD"
+    _DEFAULT_GDRIVE_FILE_ID = "1KEyKr2LGnhcMTt6quZ0kUMyqqp-D2s7l"
     _DEFAULT_WEIGHT_PATH    = "best_model.pt"
 
     def __init__(
