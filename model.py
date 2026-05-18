@@ -460,22 +460,24 @@ class Transformer(nn.Module):
 
         # ── ❷ load spaCy tokenizers ───────────────────────────────
         import spacy
+        self._spacy_de = spacy.blank("de")
+        self._spacy_en = spacy.blank("en")
 
-        try:
-            self._spacy_de = spacy.load("de_core_news_sm")
-        except OSError:
-            raise RuntimeError(
-                "German spaCy model not found.\n"
-                "Run:  python -m spacy download de_core_news_sm"
-            )
+        # try:
+        #     self._spacy_de = spacy.load("de_core_news_sm")
+        # except OSError:
+        #     raise RuntimeError(
+        #         "German spaCy model not found.\n"
+        #         "Run:  python -m spacy download de_core_news_sm"
+        #     )
 
-        try:
-            self._spacy_en = spacy.load("en_core_web_sm")
-        except OSError:
-            raise RuntimeError(
-                "English spaCy model not found.\n"
-                "Run:  python -m spacy download en_core_web_sm"
-            )
+        # try:
+        #     self._spacy_en = spacy.load("en_core_web_sm")
+        # except OSError:
+        #     raise RuntimeError(
+        #         "English spaCy model not found.\n"
+        #         "Run:  python -m spacy download en_core_web_sm"
+        #     )
 
         # ── ❸ build vocabularies from Multi30k train split ────────
         from dataset import Multi30kDataset

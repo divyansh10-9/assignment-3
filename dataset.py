@@ -157,23 +157,25 @@ class Multi30kDataset(Dataset):
         # Load spaCy tokenizers
         # --------------------------------------------------------
 
-        try:
-            self.spacy_de = spacy.load("de_core_news_sm")
-        except:
-            raise RuntimeError(
-                "German spaCy model not found.\n"
-                "Run:\n"
-                "python -m spacy download de_core_news_sm"
-            )
+        # try:
+        #     self.spacy_de = spacy.load("de_core_news_sm")
+        # except:
+        #     raise RuntimeError(
+        #         "German spaCy model not found.\n"
+        #         "Run:\n"
+        #         "python -m spacy download de_core_news_sm"
+        #     )
 
-        try:
-            self.spacy_en = spacy.load("en_core_web_sm")
-        except:
-            raise RuntimeError(
-                "English spaCy model not found.\n"
-                "Run:\n"
-                "python -m spacy download en_core_web_sm"
-            )
+        # try:
+        #     self.spacy_en = spacy.load("en_core_web_sm")
+        # except:
+        #     raise RuntimeError(
+        #         "English spaCy model not found.\n"
+        #         "Run:\n"
+        #         "python -m spacy download en_core_web_sm"
+        #     )
+        self.spacy_de = spacy.blank("de")
+        self.spacy_en = spacy.blank("en")
 
         # --------------------------------------------------------
         # Build or reuse vocabularies
