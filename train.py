@@ -25,9 +25,6 @@ from model import (
 from lr_scheduler import NoamScheduler
 
 
-# ════════════════════════════════════════════════════════════════
-# Label Smoothing Loss
-# ════════════════════════════════════════════════════════════════
 
 class LabelSmoothingLoss(nn.Module):
 
@@ -45,8 +42,7 @@ class LabelSmoothingLoss(nn.Module):
         self.smoothing  = smoothing
         self.confidence = 1.0 - smoothing
 
-    # ------------------------------------------------------------
-
+    
     def forward(
         self,
         logits: torch.Tensor,
@@ -97,13 +93,7 @@ def run_epoch(
     device: str = "cpu",
     global_step: int = 0,
 ) -> tuple:
-    """
-    Run one epoch of training or validation.
-
-    Returns:
-        avg_loss   : Average loss over the epoch
-        global_step: Updated global step counter (only incremented during training)
-    """
+    
 
     if is_train:
         model.train()
@@ -111,7 +101,7 @@ def run_epoch(
         model.eval()
 
     total_loss  = 0
-    total_tokens = 0   # non-pad tokens seen (for perplexity)
+    total_tokens = 0  
 
     progress_bar = tqdm(
         data_iter,
@@ -129,7 +119,6 @@ def run_epoch(
         src_mask = make_src_mask(src)
         tgt_mask = make_tgt_mask(tgt_input)
 
-        # count non-pad tokens for perplexity
         non_pad = (tgt_output != 1).sum().item()
         total_tokens += non_pad
 
@@ -149,7 +138,6 @@ def run_epoch(
 
                 loss.backward()
 
-                # track gradient norm before clipping
                 grad_norm = sum(
                     p.grad.data.norm(2).item() ** 2
                     for p in model.parameters()
@@ -169,7 +157,6 @@ def run_epoch(
                 current_lr = optimizer.param_groups[0]["lr"]
                 global_step += 1
 
-                # ── per-step wandb logging ────────────────────────
                 wandb.log({
                     "train/step_loss"  : loss.item(),
                     "train/learning_rate": current_lr,
@@ -186,10 +173,8 @@ def run_epoch(
 
     avg_loss = total_loss / len(data_iter)
 
-    # perplexity = exp(avg token-level NLL)
-    # avg_loss here is already mean over *positions* inside the loss fn,
-    # so we recompute a token-level estimate from total_loss * batch_count
-    perplexity = math.exp(min(avg_loss, 20))   # cap to avoid overflow
+    
+    perplexity = math.exp(min(avg_loss, 20))   
 
     return avg_loss, perplexity, global_step
 
@@ -269,7 +254,7 @@ def evaluate_bleu(
 
     references  = []
     hypotheses  = []
-    examples    = []   # (src_str, ref_str, hyp_str) for wandb table
+    examples    = []   
 
     sos_idx = tgt_vocab.stoi["<sos>"]
     eos_idx = tgt_vocab.stoi["<eos>"]
@@ -318,11 +303,10 @@ def evaluate_bleu(
                 hypotheses.append(pred_sentence)
                 references.append([tgt_sentence])
 
-                # collect a few examples for the wandb table
                 if len(examples) < log_n_examples:
                     examples.append((
-                        " ".join(tgt_sentence),          # reference (EN)
-                        " ".join(pred_sentence),         # hypothesis (EN)
+                        " ".join(tgt_sentence),          
+                        " ".join(pred_sentence),         
                     ))
 
     bleu = corpus_bleu(
@@ -331,7 +315,6 @@ def evaluate_bleu(
         smoothing_function=SmoothingFunction().method1,
     ) * 100
 
-    # log translation examples table to wandb
     table = wandb.Table(
         columns=["reference", "hypothesis"],
         data=examples,
@@ -341,9 +324,6 @@ def evaluate_bleu(
     return bleu
 
 
-# ════════════════════════════════════════════════════════════════
-# Save Checkpoint
-# ════════════════════════════════════════════════════════════════
 
 def save_checkpoint(
     model: Transformer,
@@ -384,9 +364,6 @@ def save_checkpoint(
     print(f"Checkpoint saved to {path}")
 
 
-# ════════════════════════════════════════════════════════════════
-# Load Checkpoint
-# ════════════════════════════════════════════════════════════════
 
 def load_checkpoint(
     path: str,
@@ -410,9 +387,6 @@ def load_checkpoint(
     return checkpoint["epoch"]
 
 
-# ════════════════════════════════════════════════════════════════
-# Training Experiment
-# ════════════════════════════════════════════════════════════════
 
 def run_training_experiment():
 
@@ -434,7 +408,6 @@ def run_training_experiment():
         tags=["transformer", "de-en", "multi30k"],
     )
 
-    # log model architecture summary as text
     wandb.run.notes = (
         f"Transformer {config['num_layers']}L × {config['num_heads']}H, "
         f"d_model={config['d_model']}, d_ff={config['d_ff']}, "
@@ -448,9 +421,6 @@ def run_training_experiment():
     print(f"Using device: {device}")
     wandb.config.update({"device": str(device)})
 
-    # ------------------------------------------------------------
-    # Datasets
-    # ------------------------------------------------------------
 
     train_dataset = Multi30kDataset("train")
 
@@ -466,7 +436,7 @@ def run_training_experiment():
         tgt_vocab=train_dataset.tgt_vocab,
     )
 
-    # log vocab sizes
+   
     wandb.config.update({
         "src_vocab_size": len(train_dataset.src_vocab),
         "tgt_vocab_size": len(train_dataset.tgt_vocab),
@@ -496,10 +466,6 @@ def run_training_experiment():
         collate_fn=collate_fn,
     )
 
-    # ------------------------------------------------------------
-    # Model
-    # ------------------------------------------------------------
-
     model = Transformer(
         src_vocab_size=len(train_dataset.src_vocab),
         tgt_vocab_size=len(train_dataset.tgt_vocab),
@@ -510,7 +476,6 @@ def run_training_experiment():
         dropout=config["dropout"],
     ).to(device)
 
-    # log parameter count
     total_params     = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     wandb.config.update({
@@ -519,12 +484,8 @@ def run_training_experiment():
     })
     print(f"Model parameters: {trainable_params:,} trainable / {total_params:,} total")
 
-    # watch gradients and weights (logs histograms every 100 steps)
     wandb.watch(model, log="all", log_freq=100)
 
-    # ------------------------------------------------------------
-    # Optimizer
-    # ------------------------------------------------------------
 
     optimizer = torch.optim.Adam(
         model.parameters(),
@@ -533,9 +494,6 @@ def run_training_experiment():
         eps=1e-9,
     )
 
-    # ------------------------------------------------------------
-    # Scheduler
-    # ------------------------------------------------------------
 
     scheduler = NoamScheduler(
         optimizer,
@@ -543,9 +501,6 @@ def run_training_experiment():
         warmup_steps=config["warmup_steps"],
     )
 
-    # ------------------------------------------------------------
-    # Loss
-    # ------------------------------------------------------------
 
     loss_fn = LabelSmoothingLoss(
         vocab_size=len(train_dataset.tgt_vocab),
@@ -553,9 +508,6 @@ def run_training_experiment():
         smoothing=0.1,
     )
 
-    # ------------------------------------------------------------
-    # Training Loop
-    # ------------------------------------------------------------
 
     best_val_loss  = float("inf")
     best_val_epoch = 0
@@ -597,8 +549,6 @@ def run_training_experiment():
             f"\n  Val   Loss: {val_loss:.4f}  PPL: {val_ppl:.2f}"
             f"\n  Time: {epoch_time:.1f}s\n"
         )
-
-        # ── per-epoch wandb logging ───────────────────────────────
         wandb.log({
             "epoch"            : epoch,
             "train/epoch_loss" : train_loss,
@@ -622,7 +572,6 @@ def run_training_experiment():
                 path="best_model.pt",
             )
 
-            # save best model as a wandb artifact
             artifact = wandb.Artifact(
                 name="best_model",
                 type="model",
@@ -636,11 +585,6 @@ def run_training_experiment():
     wandb.run.summary["best_val_loss"]  = best_val_loss
     wandb.run.summary["best_val_epoch"] = best_val_epoch
 
-    # ------------------------------------------------------------
-    # BLEU Evaluation on Test Set
-    # ------------------------------------------------------------
-
-    # load best weights before evaluating
     load_checkpoint("best_model.pt", model)
 
     bleu = evaluate_bleu(
@@ -659,9 +603,6 @@ def run_training_experiment():
     wandb.finish()
 
 
-# ════════════════════════════════════════════════════════════════
-# Main
-# ════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
 

@@ -17,9 +17,6 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import LRScheduler
 
 
-# ════════════════════════════════════════════════════════════════
-# Noam Scheduler
-# ════════════════════════════════════════════════════════════════
 
 class NoamScheduler(LRScheduler):
     """
@@ -53,21 +50,14 @@ class NoamScheduler(LRScheduler):
         last_epoch: int = -1,
     ) -> None:
 
-        # --------------------------------------------------------
-        # Store parameters
-        # --------------------------------------------------------
-
+      
         self.d_model = d_model
         self.warmup_steps = warmup_steps
 
-        # --------------------------------------------------------
-        # Initialize parent scheduler
-        # --------------------------------------------------------
-
+       
         super().__init__(optimizer, last_epoch)
 
-    # ════════════════════════════════════════════════════════════
-
+    
     def _get_lr_scale(self) -> float:
         """
         Compute Noam LR scaling factor.
@@ -81,7 +71,6 @@ class NoamScheduler(LRScheduler):
             Scaling factor (float)
         """
 
-        # Avoid step=0
         step = self.last_epoch + 1
 
         scale = (
@@ -95,8 +84,7 @@ class NoamScheduler(LRScheduler):
 
         return scale
 
-    # ════════════════════════════════════════════════════════════
-
+   
     def get_lr(self):
         """
         Compute learning rate for each parameter group.
@@ -113,9 +101,6 @@ class NoamScheduler(LRScheduler):
         ]
 
 
-# ════════════════════════════════════════════════════════════════
-# Helper Function
-# ════════════════════════════════════════════════════════════════
 
 def get_lr_history(
     d_model: int,
@@ -162,10 +147,6 @@ def get_lr_history(
 
     return history
 
-
-# ════════════════════════════════════════════════════════════════
-# Visualization Test
-# ════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
 
