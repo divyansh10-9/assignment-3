@@ -25,5 +25,11 @@ This project includes:
 ├── requirements.txt
 └── README.md
 
+# Weights & Biases Report
+
+[W&B Report](https://api.wandb.ai/links/divyanshusingh2605910-indian-institute-of-technology-madras/hc58pnl9)
+
+---
+
 
 wandb report link - "https://api.wandb.ai/links/divyanshusingh2605910-indian-institute-of-technology-madras/hc58pnl9"
