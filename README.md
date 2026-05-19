@@ -24,12 +24,16 @@ This project includes:
 ├── train.py
 ├── requirements.txt
 └── README.md
-
-# Weights & Biases Report
-
-[W&B Report](https://api.wandb.ai/links/divyanshusingh2605910-indian-institute-of-technology-madras/hc58pnl9)
+```
 
 ---
 
+# W&B Report
 
-## wandb report link - "https://api.wandb.ai/links/divyanshusingh2605910-indian-institute-of-technology-madras/hc58pnl9"
+[View W&B Report](https://api.wandb.ai/links/divyanshusingh2605910-indian-institute-of-technology-madras/hc58pnl9)
+
+---
+
+# GitHub Repository
+
+[GitHub Repository](https://github.com/divyansh10-9/assignment-3)
